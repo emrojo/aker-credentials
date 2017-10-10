@@ -1,18 +1,26 @@
 require 'jwt'
 require 'request_store'
+require 'ostruct'
 
 class JWTSerializer < Faraday::Middleware
 
   def call(env)
     #debugger
-    token = JWTSerializer.generate_jwt(RequestStore.store[:x_authorisation])
-    env[:request_headers]["X-Authorisation"] = token
+    user_info = RequestStore.store[:x_authorisation]
+    if user_info
+      token = JWTSerializer.generate_jwt(user_info)
+      env[:request_headers]["X-Authorisation"] = token
+    else
+      env[:request_headers].delete("X-Authorisation")
+    end
     @app.call(env)
   end
 
   def self.generate_jwt(auth_hash)
     #debugger
-    unless auth_hash.is_a? Hash
+    if auth_hash.is_a? OpenStruct
+      auth_hash = auth_hash.to_h
+    elsif !auth_hash.is_a? Hash
       auth_hash = auth_hash.to_jwt_data
     end
     secret_key = Rails.application.config.jwt_secret_key
